@@ -1,0 +1,41 @@
+---
+apiVersion: extensions/v1beta1
+kind: DaemonSet
+metadata:
+  name: etcd-backup
+spec:
+  template:
+    metadata:
+      labels:
+        name: etcd-backup
+    spec:
+      hostNetwork: true
+      containers:
+        - name: etcd-backup
+          image: quay.io/ukhomeofficedigital/etcd-backup:latest
+          resources:
+            limits:
+              memory: "100Mi"
+          env:
+            - name: ETCD_DATA_DIR
+              value: "/var/lib/etcd2"
+            - name: ETCD_BACKUP_DIR
+              value: "/var/lib/etcd2/backups"
+            - name: CLUSTER_BACKUP_TIMES
+              value: "0000"
+            - name: NODE_BACKUP_TIMES
+              value: "0100 0700 1300 1900"
+          volumeMounts:
+            - mountPath: /var/lib/etcd2
+              name: var-lib-etcd2
+            - mountPath: /etc/ssl
+              name: etc-ssl
+      volumes:
+        - name: var-lib-etcd2
+          hostPath:
+            # We need to ensure this can detect changes for etcd2 data mounts
+            path: /var/lib/etcd2
+        - name: etc-ssl
+          hostPath:
+            # To trust the platform CA
+            path: /etc/ssl

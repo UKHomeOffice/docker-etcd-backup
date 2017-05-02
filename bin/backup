@@ -1,0 +1,143 @@
+#!/usr/bin/env bash
+
+set -o errexit
+set -o pipefail
+
+[[ ${DEBUG} == 'true' ]] && set -x
+
+# Supported external envs:
+CLUSTER_BACKUP_TIMES=${CLUSTER_BACKUP_TIMES:-0000}
+NODE_BACKUP_TIMES=${NODE_BACKUP_TIMES:-0100 0700 1300 1900}
+ENV_FILE=${ENV_FILE:-/etc/environment}
+ETCD_ENDPOINTS=${ETCD_ENDPOINTS:-https://localhost:2379}
+
+# Internal constants
+rel_etcd_backup_path=./member
+rel_bak="%Y/%m/%d"
+LOCAL_BAK="${ETCD_BACKUP_DIR}/${rel_bak}"
+
+function error_exit() {
+  echo "${1}"
+  exit 1
+}
+
+function gettime() {
+  date +%H%M
+}
+
+# Will clear down any previous backups locally (If pushing files elsewhere)
+function cleardown_local() {
+  local yesterday=$(date -d "yesterday" "+${LOCAL_BAK}")
+  local today=$(date "+${LOCAL_BAK}")
+
+  # To make sure we clear up yesterday (if we haven't already)
+  rm -fr ${yesterday}/*.tar.gz
+  rm -fr ${today}/*.tar.gz
+}
+
+function setnode() {
+  if [[ ! -z "${NODE_BACKUP_TIMES}" ]]; then
+    if [[ -z "${NODE_NAME}" ]]; then
+      echo "Auditing NODE_NAME from ${ETCD_ENDPOINTS}..."
+      NODE_NAME=$(curl -QL ${ETCD_ENDPOINTS}/v2/stats/self 2>/dev/null | jq -r ".name")
+      echo "NODE_NAME=${NODE_NAME}"
+    fi
+  fi
+}
+
+# Creates a local backup of the current cluster
+function clusterbackup() {
+
+  echo "Start Cluster Backup"
+  local backup_path=$(date "+${LOCAL_BAK}")
+  local time=$(gettime)
+  local file=${backup_path}/cluster_${time}.tar.gz
+
+  rm -fr ${backup_path}
+  echo "Backing up cluster data"
+  etcdctl backup --data-dir=${ETCD_DATA_DIR} --backup-dir=${backup_path}
+  (
+    cd ${backup_path}
+    tar -cvzf ${file} ${rel_etcd_backup_path}
+  )
+  echo "Backed up to:${file}"
+}
+
+# Will create a backup file and push to S3
+function nodebackup() {
+
+  echo "Start Node Backup"
+  local backup_path=$(date "+${LOCAL_BAK}")
+  local time=$(gettime)
+  local file=${backup_path}/${NODE_NAME}_${time}.tar.gz
+
+  rm -fr ${backup_path}
+  mkdir -p ${backup_path}
+  echo "Backing up node data for ${NODE_NAME}"
+  (
+    cd ${ETCD_DATA_DIR}
+    tar -cvzf ${file} ${rel_etcd_backup_path}
+  )
+  echo "Backed up to:${file}"
+}
+
+function istime() {
+  local backuptime=${1}
+  local time=$(gettime)
+
+  # This only compares minute's not seconds.
+  # It's very unlikely we backup more often than once a minute
+  if [ "${time}" != "${backuptime}" ] ; then
+    return 1
+  else
+    return 0
+  fi
+}
+
+echo "Startup time:$(gettime)"
+echo "Backup times:"
+echo "  cluster: [${CLUSTER_BACKUP_TIMES}]"
+echo "  node: [${NODE_BACKUP_TIMES}]"
+
+[[ -z "${CLUSTER_BACKUP_TIMES}${NODE_BACKUP_TIMES}" ]] && \
+  error_exit "Must specify one, or both of \$CLUSTER_BACKUP_TIMES and \$NODE_BACKUP_TIMES"
+
+[[ -z ${ETCD_DATA_DIR} ]] && \
+  error_exit "Must specify a root etcd data path \$ETCD_DATA_DIR"
+
+[[ -z ${ETCD_BACKUP_DIR} ]] && \
+  error_exit "Must specify a root backup path \$ETCD_BACKUP_DIR"
+
+while true; do
+
+  # Needed to dynamically get node id from within daemon-set
+  if [[ -f ${ENV_FILE} ]]; then
+    source ${ENV_FILE}
+  fi
+
+  if [[ ! -d ${ETCD_DATA_DIR}/member ]]; then
+    [[ ${nooped} -ne 1 ]] && echo "No Data, Noop."
+    nooped=1
+    sleep 60
+    continue
+  else
+    nooped=0
+    setnode
+  fi
+
+  for backuptime in ${CLUSTER_BACKUP_TIMES} ; do
+    if istime ${backuptime} ; then
+      echo "Time:$(gettime)"
+      clusterbackup
+      sleep 60 # Ensure we skip past the checked time (we only check minutes)
+    fi
+  done
+  for backuptime in ${NODE_BACKUP_TIMES} ; do
+    if istime ${backuptime} ; then
+      echo "Time:$(gettime)"
+      nodebackup
+      sleep 60 # Ensure we skip past the checked time (we don't want to run twice in the same minute)
+    fi
+  done
+  sleep 15 # four attempts a minute to match a given time (we only check minutes)
+done
