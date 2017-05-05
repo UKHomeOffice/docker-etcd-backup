@@ -14,4 +14,4 @@ RUN apk -Uuv add --no-cache groff less python py-pip && \
 
 ADD bin/* /usr/local/bin/
 
-ENTRYPOINT ["/usr/local/bin/backup"]
+ENTRYPOINT ["/usr/local/bin/backup.sh"]
