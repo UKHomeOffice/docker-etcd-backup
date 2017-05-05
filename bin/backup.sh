@@ -53,13 +53,14 @@ function clusterbackup() {
   local time=$(gettime)
   local file=${backup_path}/cluster_${time}.tar.gz
 
-  rm -fr ${backup_path}
+  mkdir -p ${backup_path}
   echo "Backing up cluster data"
   etcdctl backup --data-dir=${ETCD_DATA_DIR} --backup-dir=${backup_path}
   (
     cd ${backup_path}
     tar -cvzf ${file} ${rel_etcd_backup_path}
   )
+  rm -fr ${backup_path}/member
   echo "Backed up to:${file}"
 }
 
@@ -71,7 +72,6 @@ function nodebackup() {
   local time=$(gettime)
   local file=${backup_path}/${NODE_NAME}_${time}.tar.gz
 
-  rm -fr ${backup_path}
   mkdir -p ${backup_path}
   echo "Backing up node data for ${NODE_NAME}"
   (
@@ -83,7 +83,7 @@ function nodebackup() {
 
 function istime() {
   local backuptime=${1}
-  local time=$(gettime)
+  local time=${2:-$(gettime)}
 
   # This only compares minute's not seconds.
   # It's very unlikely we backup more often than once a minute
@@ -98,6 +98,9 @@ echo "Startup time:$(gettime)"
 echo "Backup times:"
 echo "  cluster: [${CLUSTER_BACKUP_TIMES}]"
 echo "  node: [${NODE_BACKUP_TIMES}]"
+
+[[ ! -z ${EXIT_AT} ]] && \
+  echo "Exit time: ${EXIT_AT}"
 
 [[ -z "${CLUSTER_BACKUP_TIMES}${NODE_BACKUP_TIMES}" ]] && \
   error_exit "Must specify one, or both of \$CLUSTER_BACKUP_TIMES and \$NODE_BACKUP_TIMES"
@@ -125,19 +128,30 @@ while true; do
     setnode
   fi
 
+  backedup="false"
+  checktime=$(gettime) # Prevent dependency on current time moving on..
   for backuptime in ${CLUSTER_BACKUP_TIMES} ; do
-    if istime ${backuptime} ; then
+    if istime ${backuptime} ${checktime}; then
       echo "Time:$(gettime)"
       clusterbackup
-      sleep 60 # Ensure we skip past the checked time (we only check minutes)
+      backedup="true"
     fi
   done
   for backuptime in ${NODE_BACKUP_TIMES} ; do
-    if istime ${backuptime} ; then
+    if istime ${backuptime} ${checktime}; then
       echo "Time:$(gettime)"
       nodebackup
-      sleep 60 # Ensure we skip past the checked time (we don't want to run twice in the same minute)
     fi
   done
-  sleep 15 # four attempts a minute to match a given time (we only check minutes)
+  if istime ${EXIT_AT} ${checktime}; then
+    echo "Requested exit time reached EXIT_AT=${EXIT_AT}"
+    break
+  fi
+  if [[ ${backedup} == 'true' ]]; then
+    sleep 60 # Ensure we skip past the checked time (we don't want to run twice in the same minute)
+  else
+    sleep 15 # four attempts a minute to match a given time (we only check minutes)
+  fi
 done
+echo "Exiting at:$(gettime)"
+echo ""

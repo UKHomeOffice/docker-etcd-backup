@@ -1,5 +1,7 @@
 # docker-etcd-backup
 
+[![Build Status](https://drone.digital.homeoffice.gov.uk/api/badges/UKHomeOffice/docker-etcd-backup/status.svg)](https://drone.digital.homeoffice.gov.uk/UKHomeOffice/docker-etcd-backup)
+
 Backup process for etcd2 (etcd3 is much simpler)
 
 ## Design
@@ -28,6 +30,7 @@ A cluster backup is made with `etcdctl backup` which strips node information thu
 * `ENV_FILE:-/etc/environment` Will be sourced if specified
 * `NODE_NAME` Will be audited from ETCD_ENDPOINTS if not present
 * `ETCD_ENDPOINTS:-https://localhost:2379`
+* `EXIT_AT` Allows setting a time to exit (for testing)
 
 ## Restore process
 
