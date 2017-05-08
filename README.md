@@ -32,6 +32,7 @@ A cluster backup is made with `etcdctl backup` which strips node information thu
 * `ETCD_ENDPOINTS:-https://localhost:2379`
 * `EXIT_AT` Allows setting a time to exit (for testing)
 * `S3_PATH` Will backup to this path and delete off host when done
+* `KMS_ID` Specifies which KMS encryption key to use in S3
 
 ## Restore process
 

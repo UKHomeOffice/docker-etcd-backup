@@ -60,7 +60,7 @@ function move_s3() {
 
   # Check destination before uploading
   if ! s3_exists ${destpath} ; then
-    aws s3 mv ${sourcefile} ${destpath} --sse aws:kms
+    aws s3 mv ${sourcefile} ${destpath} --sse aws:kms --sse-kms-key-id ${KMS_ID}
   else
     # Don't keep a backup that are already copied
     # - this should only happen for cluster backups
