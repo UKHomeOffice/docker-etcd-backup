@@ -12,7 +12,6 @@ ENV_FILE=${ENV_FILE:-/etc/environment}
 ETCD_ENDPOINTS=${ETCD_ENDPOINTS:-https://localhost:2379}
 
 # Internal constants
-rel_etcd_backup_path=./member
 backup_now_f=${ETCD_BACKUP_DIR}/bunf
 rel_bak="%Y/%m/%d"
 LOCAL_BAK="${ETCD_BACKUP_DIR}/${rel_bak}"
@@ -79,6 +78,17 @@ function setnode() {
   fi
 }
 
+function tar_backup() {
+  local file=${1}
+
+  (
+    cd /tmp
+    tar -cvzf ${file} ./member
+    rm -fr ./member
+  )
+  echo "Backed up to:${file}"
+}
+
 # Creates a local backup of the current cluster
 function clusterbackup() {
 
@@ -89,13 +99,8 @@ function clusterbackup() {
 
   mkdir -p ${backup_path}
   echo "Backing up cluster data"
-  etcdctl backup --data-dir=${ETCD_DATA_DIR} --backup-dir=${backup_path}
-  (
-    cd ${backup_path}
-    tar -cvzf ${file} ${rel_etcd_backup_path}
-  )
-  rm -fr ${backup_path}/member
-  echo "Backed up to:${file}"
+  etcdctl backup --data-dir=${ETCD_DATA_DIR} --backup-dir=/tmp
+  tar_backup ${file}
   move_s3 ${file}
 }
 
@@ -105,15 +110,14 @@ function nodebackup() {
   local backup_path=$(date "+${LOCAL_BAK}")
   local time=$(gettime)
   local file=${backup_path}/${NODE_NAME}_${time}.tar.gz
-  echo "Start Node Backup (${time})"
 
+  echo "Start Node Backup (${time})"
   mkdir -p ${backup_path}
   echo "Backing up node data for ${NODE_NAME}"
-  (
-    cd ${ETCD_DATA_DIR}
-    tar -cvzf ${file} ${rel_etcd_backup_path}
-  )
-  echo "Backed up to:${file}"
+  for run in {1..3} ; do
+    rsync -avz ${ETCD_DATA_DIR}/member /tmp
+  done
+  tar_backup ${file}
   move_s3 ${file}
 }
 
