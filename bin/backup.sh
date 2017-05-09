@@ -122,10 +122,10 @@ function istime() {
 
   # This only compares minute's not seconds.
   # It's very unlikely we backup more often than once a minute
-  if [ "${time}" != "${backuptime}" ] ; then
-    return 1
-  else
+  if [[ "${time}" == "${backuptime}" ]]  ; then
     return 0
+  else
+    return 1
   fi
 }
 
@@ -174,20 +174,20 @@ while true; do
   backedup="false"
   checktime=$(gettime) # Prevent dependency on current time moving on..
   for backuptime in ${CLUSTER_BACKUP_TIMES} ; do
-    if istime ${backuptime} ${checktime}; then
+    if istime "${backuptime}" "${checktime}"; then
       echo "Time:$(gettime)"
       clusterbackup
       backedup="true"
     fi
   done
   for backuptime in ${NODE_BACKUP_TIMES} ; do
-    if istime ${backuptime} ${checktime}; then
+    if istime "${backuptime}" "${checktime}"; then
       echo "Time:$(gettime)"
       nodebackup
       backedup="true"
     fi
   done
-  if istime ${EXIT_AT} ${checktime}; then
+  if istime "${EXIT_AT}" "${checktime}"; then
     echo "Requested exit time reached EXIT_AT=${EXIT_AT}"
     break
   fi
