@@ -13,6 +13,7 @@ ETCD_ENDPOINTS=${ETCD_ENDPOINTS:-https://localhost:2379}
 
 # Internal constants
 rel_etcd_backup_path=./member
+backup_now_f=${ETCD_BACKUP_DIR}/bunf
 rel_bak="%Y/%m/%d"
 LOCAL_BAK="${ETCD_BACKUP_DIR}/${rel_bak}"
 
@@ -171,8 +172,17 @@ while true; do
     nooped=0
     setnode
   fi
+
   backedup="false"
   checktime=$(gettime) # Prevent dependency on current time moving on..
+
+  if [[ -f ${backup_now_f} ]]; then
+    echo "BackUp Now File detected, backing up"
+    nodebackup
+    clusterbackup
+    rm ${backup_now_f}
+    backedup="true"
+  fi
   for backuptime in ${CLUSTER_BACKUP_TIMES} ; do
     if istime "${backuptime}" "${checktime}"; then
       echo "Time:$(gettime)"

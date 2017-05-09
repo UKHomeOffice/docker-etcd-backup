@@ -35,9 +35,14 @@ function start_etcd() {
 
 start_etcd
 
-cluster_time=$(date -u --date='5sec' +'%H%M')
-node_time1=$(date -u --date='10sec' +'%H%M')
-node_time2=$(date -u --date='1min 10sec' +'%H%M')
+backupnow_time=$(date -u --date='5sec' +'%H%M')
+cluster_time=$(date -u --date='1min 5sec' +'%H%M')
+node_time1=$(date -u --date='1min 10sec' +'%H%M')
+node_time2=$(date -u --date='2min 10sec' +'%H%M')
+
+# Add test for backup now flag:
+mkdir -p ${ETCD_BACKUP_DIR}/bunf
+touch ${ETCD_BACKUP_DIR}/bunf
 
 # Run the backup container
 docker run -i \
@@ -55,7 +60,7 @@ docker run -i \
 
 echo "TEST - can we find the files"
 # test that all the backups are present
-for filename in cluster_${cluster_time}.tar.gz default_${node_time1}.tar.gz default_${node_time2}.tar.gz ; do
+for filename in default_${backupnow_time}.tar.gz cluster_${backupnow_time}.tar.gz cluster_${cluster_time}.tar.gz default_${node_time1}.tar.gz default_${node_time2}.tar.gz ; do
   files=$(find ${ETCD_BACKUP_DIR})
   if echo "$files" | grep ${filename} ; then
     echo "TEST PASSED for backup found - ${filename}"

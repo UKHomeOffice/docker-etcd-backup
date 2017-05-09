@@ -34,6 +34,10 @@ A cluster backup is made with `etcdctl backup` which strips node information thu
 * `S3_PATH` Will backup to this path and delete off host when done
 * `KMS_ID` Specifies which KMS encryption key to use in S3
 
+## BackUp Now Flag
+
+Create a file called `${ETCD_BACKUP_DIR}/bunf` to initiate a node and cluster backup (it will be deleted when done).
+
 ## Restore process
 
 ### From Node Backup
