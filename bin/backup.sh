@@ -85,18 +85,22 @@ function clusterbackup() {
   local backup_path=$(date "+${LOCAL_BAK}")
   local time=$(gettime)
   local file=${backup_path}/cluster_${time}.tar.gz
+  local temp=${1:-false}
   echo "Start Cluster Backup (${time})"
 
   mkdir -p ${backup_path}
   echo "Backing up cluster data"
   etcdctl backup --data-dir=${ETCD_DATA_DIR} --backup-dir=${backup_path}
-  (
-    cd ${backup_path}
-    tar -cvzf ${file} ${rel_etcd_backup_path}
-  )
+  if [ ${temp} != 'true' ]; then
+    (
+      cd ${backup_path}
+      tar -cvzf ${file} ${rel_etcd_backup_path}
+    )
+    echo "Backed up to:${file}"
+  fi
   rm -fr ${backup_path}/member
-  echo "Backed up to:${file}"
-  move_s3 ${file}
+  [ ${temp} != 'true' ] && \
+    move_s3 ${file}
 }
 
 # Will create a backup file and push to S3
@@ -105,13 +109,15 @@ function nodebackup() {
   local backup_path=$(date "+${LOCAL_BAK}")
   local time=$(gettime)
   local file=${backup_path}/${NODE_NAME}_${time}.tar.gz
-  echo "Start Node Backup (${time})"
+  echo "Cluster backup first to try force consistent state.."
+  clusterbackup "true"
 
+  echo "Start Node Backup (${time})"
   mkdir -p ${backup_path}
   echo "Backing up node data for ${NODE_NAME}"
   (
     cd ${ETCD_DATA_DIR}
-    tar -cvzf ${file} ${rel_etcd_backup_path}
+    tar --ignore-failed-read -cvzf ${file} ${rel_etcd_backup_path}
   )
   echo "Backed up to:${file}"
   move_s3 ${file}
