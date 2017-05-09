@@ -111,7 +111,7 @@ function nodebackup() {
   echo "Backing up node data for ${NODE_NAME}"
   (
     cd ${ETCD_DATA_DIR}
-    tar -cvzf ${file} ${rel_etcd_backup_path}
+    tar -cvzf --ignore-failed-read ${file} ${rel_etcd_backup_path}
   )
   echo "Backed up to:${file}"
   move_s3 ${file}
