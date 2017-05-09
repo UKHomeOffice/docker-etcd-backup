@@ -1,6 +1,6 @@
 FROM alpine:3.5
 ENV ETCD_VER v2.3.7
-RUN apk add --update --no-cache bash curl jq
+RUN apk add --update --no-cache bash curl jq tar rsync
 
 RUN curl -L  https://github.com/coreos/etcd/releases/download/${ETCD_VER}/etcd-${ETCD_VER}-linux-amd64.tar.gz -o /tmp/etcd-${ETCD_VER}-linux-amd64.tar.gz && \
     tar -xzvf /tmp/etcd-${ETCD_VER}-linux-amd64.tar.gz -C /usr/local/bin && \

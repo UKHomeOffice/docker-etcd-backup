@@ -85,6 +85,7 @@ function clusterbackup() {
   local backup_path=$(date "+${LOCAL_BAK}")
   local time=$(gettime)
   local file=${backup_path}/cluster_${time}.tar.gz
+  local temp=${1}
   echo "Start Cluster Backup (${time})"
 
   mkdir -p ${backup_path}
@@ -94,8 +95,8 @@ function clusterbackup() {
     cd ${backup_path}
     tar -cvzf ${file} ${rel_etcd_backup_path}
   )
-  rm -fr ${backup_path}/member
   echo "Backed up to:${file}"
+  rm -fr ${backup_path}/member
   move_s3 ${file}
 }
 
@@ -105,12 +106,15 @@ function nodebackup() {
   local backup_path=$(date "+${LOCAL_BAK}")
   local time=$(gettime)
   local file=${backup_path}/${NODE_NAME}_${time}.tar.gz
-  echo "Start Node Backup (${time})"
 
+  echo "Start Node Backup (${time})"
   mkdir -p ${backup_path}
   echo "Backing up node data for ${NODE_NAME}"
+  for run in {1..3} ; do
+    rsync -avz ${ETCD_DATA_DIR}/${rel_etcd_backup_path} ${backup_path}/${rel_etcd_backup_path}
+  done
   (
-    cd ${ETCD_DATA_DIR}
+    cd ${backup_path}
     tar -cvzf ${file} ${rel_etcd_backup_path}
   )
   echo "Backed up to:${file}"
