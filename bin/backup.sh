@@ -122,10 +122,10 @@ function istime() {
 
   # This only compares minute's not seconds.
   # It's very unlikely we backup more often than once a minute
-  if [ "${time}" != "${backuptime}" ] ; then
-    return 1
-  else
+  if [[ "${time}" == "${backuptime}" ]]  ; then
     return 0
+  else
+    return 1
   fi
 }
 
