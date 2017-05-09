@@ -13,6 +13,7 @@ ETCD_ENDPOINTS=${ETCD_ENDPOINTS:-https://localhost:2379}
 
 # Internal constants
 rel_etcd_backup_path=./member
+backup_now_f=${ETCD_BACKUP_DIR}/bunf
 rel_bak="%Y/%m/%d"
 LOCAL_BAK="${ETCD_BACKUP_DIR}/${rel_bak}"
 
@@ -81,10 +82,10 @@ function setnode() {
 # Creates a local backup of the current cluster
 function clusterbackup() {
 
-  echo "Start Cluster Backup"
   local backup_path=$(date "+${LOCAL_BAK}")
   local time=$(gettime)
   local file=${backup_path}/cluster_${time}.tar.gz
+  echo "Start Cluster Backup (${time})"
 
   mkdir -p ${backup_path}
   echo "Backing up cluster data"
@@ -101,10 +102,10 @@ function clusterbackup() {
 # Will create a backup file and push to S3
 function nodebackup() {
 
-  echo "Start Node Backup"
   local backup_path=$(date "+${LOCAL_BAK}")
   local time=$(gettime)
   local file=${backup_path}/${NODE_NAME}_${time}.tar.gz
+  echo "Start Node Backup (${time})"
 
   mkdir -p ${backup_path}
   echo "Backing up node data for ${NODE_NAME}"
@@ -171,18 +172,25 @@ while true; do
     nooped=0
     setnode
   fi
+
   backedup="false"
   checktime=$(gettime) # Prevent dependency on current time moving on..
+
+  if [[ -f ${backup_now_f} ]]; then
+    echo "BackUp Now File detected, backing up"
+    nodebackup
+    clusterbackup
+    rm ${backup_now_f}
+    backedup="true"
+  fi
   for backuptime in ${CLUSTER_BACKUP_TIMES} ; do
     if istime "${backuptime}" "${checktime}"; then
-      echo "Time:$(gettime)"
       clusterbackup
       backedup="true"
     fi
   done
   for backuptime in ${NODE_BACKUP_TIMES} ; do
     if istime "${backuptime}" "${checktime}"; then
-      echo "Time:$(gettime)"
       nodebackup
       backedup="true"
     fi
