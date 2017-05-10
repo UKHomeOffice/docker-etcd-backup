@@ -153,6 +153,7 @@ echo "  node: [${NODE_BACKUP_TIMES}]"
 
 if [[ ! -z ${S3_PATH} ]] && is_master ; then
   setnode
+  mkdir -p ${ETCD_BACKUP_DIR}
   testfile=${ETCD_BACKUP_DIR}/test-${NODE_NAME}
   echo "Testing backup of ${testfile}"
   echo "test" > ${testfile}
