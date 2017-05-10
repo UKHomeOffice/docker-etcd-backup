@@ -12,7 +12,7 @@ ENV_FILE=${ENV_FILE:-/etc/environment}
 ETCD_ENDPOINTS=${ETCD_ENDPOINTS:-https://localhost:2379}
 
 # Internal constants
-rel_etcd_backup_path=./member
+backup_now_f=${ETCD_BACKUP_DIR}/bunf
 rel_bak="%Y/%m/%d"
 LOCAL_BAK="${ETCD_BACKUP_DIR}/${rel_bak}"
 
@@ -78,41 +78,46 @@ function setnode() {
   fi
 }
 
+function tar_backup() {
+  local file=${1}
+
+  (
+    cd /tmp
+    tar -cvzf ${file} ./member
+    rm -fr ./member
+  )
+  echo "Backed up to:${file}"
+}
+
 # Creates a local backup of the current cluster
 function clusterbackup() {
 
-  echo "Start Cluster Backup"
   local backup_path=$(date "+${LOCAL_BAK}")
   local time=$(gettime)
   local file=${backup_path}/cluster_${time}.tar.gz
+  echo "Start Cluster Backup (${time})"
 
   mkdir -p ${backup_path}
   echo "Backing up cluster data"
-  etcdctl backup --data-dir=${ETCD_DATA_DIR} --backup-dir=${backup_path}
-  (
-    cd ${backup_path}
-    tar -cvzf ${file} ${rel_etcd_backup_path}
-  )
-  rm -fr ${backup_path}/member
-  echo "Backed up to:${file}"
+  etcdctl backup --data-dir=${ETCD_DATA_DIR} --backup-dir=/tmp
+  tar_backup ${file}
   move_s3 ${file}
 }
 
 # Will create a backup file and push to S3
 function nodebackup() {
 
-  echo "Start Node Backup"
   local backup_path=$(date "+${LOCAL_BAK}")
   local time=$(gettime)
   local file=${backup_path}/${NODE_NAME}_${time}.tar.gz
 
+  echo "Start Node Backup (${time})"
   mkdir -p ${backup_path}
   echo "Backing up node data for ${NODE_NAME}"
-  (
-    cd ${ETCD_DATA_DIR}
-    tar -cvzf ${file} ${rel_etcd_backup_path}
-  )
-  echo "Backed up to:${file}"
+  for run in {1..3} ; do
+    rsync -avz ${ETCD_DATA_DIR}/member /tmp
+  done
+  tar_backup ${file}
   move_s3 ${file}
 }
 
@@ -122,10 +127,10 @@ function istime() {
 
   # This only compares minute's not seconds.
   # It's very unlikely we backup more often than once a minute
-  if [ "${time}" != "${backuptime}" ] ; then
-    return 1
-  else
+  if [[ "${time}" == "${backuptime}" ]]  ; then
     return 0
+  else
+    return 1
   fi
 }
 
@@ -171,23 +176,30 @@ while true; do
     nooped=0
     setnode
   fi
+
   backedup="false"
   checktime=$(gettime) # Prevent dependency on current time moving on..
+
+  if [[ -f ${backup_now_f} ]]; then
+    echo "BackUp Now File detected, backing up"
+    nodebackup
+    clusterbackup
+    rm ${backup_now_f}
+    backedup="true"
+  fi
   for backuptime in ${CLUSTER_BACKUP_TIMES} ; do
-    if istime ${backuptime} ${checktime}; then
-      echo "Time:$(gettime)"
+    if istime "${backuptime}" "${checktime}"; then
       clusterbackup
       backedup="true"
     fi
   done
   for backuptime in ${NODE_BACKUP_TIMES} ; do
-    if istime ${backuptime} ${checktime}; then
-      echo "Time:$(gettime)"
+    if istime "${backuptime}" "${checktime}"; then
       nodebackup
       backedup="true"
     fi
   done
-  if istime ${EXIT_AT} ${checktime}; then
+  if istime "${EXIT_AT}" "${checktime}"; then
     echo "Requested exit time reached EXIT_AT=${EXIT_AT}"
     break
   fi
