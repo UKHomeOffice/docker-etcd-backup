@@ -1,54 +1,36 @@
 pipeline:
-
   build_docker_image:
-    image: docker:1.12
+    image: docker:17.07.0
     environment:
-      - DOCKER_HOST=tcp://127.0.0.1:2375
+      - DOCKER_HOST=tcp://172.17.0.1:2375
     commands:
-      - docker build -t image .
+      - docker build -t quay.io/ukhomeofficedigital/etcd-backup:$${DRONE_COMMIT_SHA} .
+    when:
+      event:
+        - push
+        - tag
 
-  test_run:
-    image: docker:1.12
+  image_to_quay:
+    image: docker:17.07.0
+    secrets: [docker_password]
     environment:
-      - DOCKER_HOST=tcp://127.0.0.1:2375
-      - ETCD_DATA_DIR=/drone/etcd2
-      - ETCD_BACKUP_DIR=/drone/etcd2/backups
-      - DEBUG=${DEBUG:-FALSE}
-      - IMAGE=image
+      - DOCKER_HOST=tcp://172.17.0.1:2375
     commands:
-      - apk add --update bash coreutils curl jq --no-cache
-      - ./bin/tests.sh
-
-  latest_image_to_quay:
-    image: docker:1.12
-    environment:
-      - DOCKER_HOST=tcp://127.0.0.1:2375
-    commands:
-      - docker login -u="ukhomeofficedigital+drone_docker_etcdbackup" -p=${DOCKER_PASSWORD} quay.io
-      - docker tag image quay.io/ukhomeofficedigital/etcd-backup:latest
-      - docker tag image quay.io/ukhomeofficedigital/etcd-backup:${DRONE_COMMIT_SHA}
+      - docker login -u="ukhomeofficedigital+drone_docker_etcdbackup" -p=$${DOCKER_PASSWORD} quay.io
+      - docker tag quay.io/ukhomeofficedigital/etcd-backup:$${DRONE_COMMIT_SHA} quay.io/ukhomeofficedigital/etcd-backup:latest
+      - docker push quay.io/ukhomeofficedigital/etcd-backup:$${DRONE_COMMIT_SHA}
       - docker push quay.io/ukhomeofficedigital/etcd-backup:latest
-      - docker push quay.io/ukhomeofficedigital/etcd-backup:${DRONE_COMMIT_SHA}
     when:
       event: push
-      branch: master
 
-  tag_image_to_quay:
-    image: docker:1.12
+  tagged_image_to_quay:
+    image: docker:17.07.0
+    secrets: [docker_password]
     environment:
-      - DOCKER_HOST=tcp://127.0.0.1:2375
+      - DOCKER_HOST=tcp://172.17.0.1:2375
     commands:
-      - docker login -u="ukhomeofficedigital+drone_docker_etcdbackup" -p=${DOCKER_PASSWORD} quay.io
-      - docker tag image quay.io/ukhomeofficedigital/etcd-backup:${DRONE_TAG}
-      - docker push quay.io/ukhomeofficedigital/etcd-backup:${DRONE_TAG}
+      - docker login -u="ukhomeofficedigital+drone_docker_etcdbackup" -p=$${DOCKER_PASSWORD} quay.io
+      - docker tag quay.io/ukhomeofficedigital/etcd-backup:$${DRONE_COMMIT_SHA} quay.io/ukhomeofficedigital/etcd-backup:$${DRONE_TAG}
+      - docker push quay.io/ukhomeofficedigital/etcd-backup:$${DRONE_TAG}
     when:
       event: tag
-
-services:
-  dind:
-    image: docker:1.12-dind
-    privileged: true
-    command:
-      - "-s"
-      - "overlay"
-
