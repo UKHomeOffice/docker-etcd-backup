@@ -10,8 +10,8 @@ export ETCDCTL_API=3
 
 ETCD_ENDPOINT=${ETCD_ENDPOINT:-https://localhost:4001}
 CA_FILE=${CA_FILE:-/srv/kubernetes/ca.crt}
+ETCD_CMD=${ETCD_CMD:-"etcdctl --cacert ${CA_FILE}"}
 
-ETCD_CMD="etcdctl --cacert ${CA_FILE}"
 DATESTAMP=`date +%Y%m%d_%H%M`
 BACKUP_PATH=${BACKUP_PATH:-/tmp}
 BACKUP_FILE=${BACKUP_PATH}/etcd_backup.db
