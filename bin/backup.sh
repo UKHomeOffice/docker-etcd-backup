@@ -37,7 +37,11 @@ function move_s3() {
   # Check destination before uploading
   if [[ -f ${BACKUP_TAR} ]] ; then
     info "Uploading backed up file to s3"
-    aws s3 mv ${BACKUP_TAR} ${destpath} --sse aws:kms --sse-kms-key-id ${KMS_ID}
+    if [[ -z ${KMS_ID} ]] ; then
+      aws s3 mv ${BACKUP_TAR} ${destpath}
+    else
+      aws s3 mv ${BACKUP_TAR} ${destpath} --sse aws:kms --sse-kms-key-id ${KMS_ID}
+    fi
   else
     error_exit "Backed up file does not exist"
     exit 1
