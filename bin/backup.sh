@@ -36,7 +36,9 @@ function move_s3() {
   # Check destination before uploading
   if [[ -f ${BACKUP_TAR} ]] ; then
     info "Uploading backed up file to s3"
-    if [[ ${NO_SSL_VERIFY} ]] ; then
+    if [[ ${CA_BUNDLE} ]] ; then
+      s3cli_args+=" --ca-bundle"
+    elif [[ ${NO_SSL_VERIFY} ]]; then
       s3cli_args+=" --no-verify-ssl"
     fi
     if [[ -n ${AWS_ENDPOINT} ]] ; then
