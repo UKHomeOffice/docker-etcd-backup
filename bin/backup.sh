@@ -11,7 +11,6 @@ export ETCDCTL_API=3
 ETCD_ENDPOINT=${ETCD_ENDPOINT:-https://localhost:4001}
 CA_FILE=${CA_FILE:-/srv/kubernetes/ca.crt}
 ETCD_CMD=${ETCD_CMD:-"etcdctl --cacert ${CA_FILE}"}
-
 DATESTAMP=`date +%Y%m%d_%H%M`
 BACKUP_PATH=${BACKUP_PATH:-/tmp}
 BACKUP_FILE=${BACKUP_PATH}/etcd_backup.db
@@ -29,7 +28,7 @@ function info() {
 
 function move_s3() {
   local destpath=${S3_PATH}${BACKUP_TAR#${BACKUP_PATH}}
-
+  local s3cli_args=""
   # Noop when no backup
   [[ -z ${S3_PATH} ]] && \
     return 0
@@ -37,11 +36,16 @@ function move_s3() {
   # Check destination before uploading
   if [[ -f ${BACKUP_TAR} ]] ; then
     info "Uploading backed up file to s3"
-    if [[ -z ${KMS_ID} ]] ; then
-      aws s3 mv ${BACKUP_TAR} ${destpath}
-    else
-      aws s3 mv ${BACKUP_TAR} ${destpath} --sse aws:kms --sse-kms-key-id ${KMS_ID}
+    if [[ ${NO_SSL_VERIFY} ]] ; then
+      s3cli_args+=" --no-verify-ssl"
     fi
+    if [[ -n ${AWS_ENDPOINT} ]] ; then
+      s3cli_args+=" --endpoint-url ${AWS_ENDPOINT}"
+    fi
+    if [[ -n ${KMS_ID} ]] ; then
+      s3cli_args+=" --sse aws:kms --sse-kms-key-id ${KMS_ID}"
+    fi
+      aws s3 mv ${s3cli_args} ${BACKUP_TAR} ${destpath}
   else
     error_exit "Backed up file does not exist"
     exit 1
