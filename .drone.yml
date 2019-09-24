@@ -9,6 +9,14 @@ pipeline:
       event:
         - push
         - tag
+  scan:
+    image: quay.io/ukhomeofficedigital/anchore-submission:latest
+    dockerfile: Dockerfile
+    image_name: quay.io/ukhomeofficedigital/etcd-backup:${DRONE_COMMIT_SHA}
+    tolerates: medium
+    fail_on_detection: true
+    when:
+      event: push
 
   image_to_quay:
     image: docker:17.07.0
@@ -22,6 +30,7 @@ pipeline:
       - docker push quay.io/ukhomeofficedigital/etcd-backup:latest
     when:
       event: push
+      branch: master
 
   tagged_image_to_quay:
     image: docker:17.07.0
