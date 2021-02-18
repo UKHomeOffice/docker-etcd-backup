@@ -19,8 +19,9 @@ export DATESTAMP=`date +%Y%m%d_%H%M`
 export BACKUP_PATH=${BACKUP_PATH:-/tmp}
 export BACKUP_FILE=${BACKUP_PATH}/etcd_backup.db
 export BACKUP_TAR=${BACKUP_PATH}/etcd_${DATESTAMP}.tar.gz
-export ETCDCTL_API=3
 export ETCDCTL_CACERT=${ETCDCTL_CACERT:-/srv/kubernetes/ca.crt}
+export ETCDCTL_CERT=${ETCDCTL_CERT:-/srv/kubernetes/etcd.pem}
+export ETCDCTL_KEY=${ETCDCTL_KEY:-/srv/kubernetes/etcd-key.pem}
 export ETCDCTL_ENDPOINTS=${ETCDCTL_ENDPOINTS:-https://localhost:2379}
 export ETCDCTL_ENDPOINTS=`etcdctl member list | awk '{print $5}' | tr '\n' ',' | sed s/.$//`
 
